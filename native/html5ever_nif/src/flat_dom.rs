@@ -107,6 +107,13 @@ where
             }
         }
     }
+
+    pub fn len(&mut self) -> usize {
+        match self {
+            PoolOrVec::Pool { len, .. } => return *len,
+            PoolOrVec::Vec { vec } => return vec.len(),
+        };
+    }
 }
 
 pub struct Node {
@@ -199,6 +206,58 @@ fn node_or_text_to_node(sink: &mut FlatSink, not: NodeOrText<NodeHandle>) -> Nod
     }
 }
 
+fn append_node_to_parent(sink: &mut FlatSink, handle: NodeHandle, parent_id: &NodeHandle) {
+    sink.nodes[parent_id.0]
+        .children
+        .push(handle, &mut sink.pool);
+    sink.node_mut(handle).parent = Some(*parent_id);
+}
+
+fn append_text_to_existing_text_node(
+    sink: &mut FlatSink,
+    text: StrTendril,
+    parent_id: &NodeHandle,
+) {
+    if let PoolOrVec::Vec { vec } = &sink.nodes[parent_id.0].children {
+        if let Some(child_node) = vec.last() {
+            if let NodeData::Text { contents } = &sink.nodes[child_node.0].data {
+                let new_text = combine_texts(contents, &text);
+                let handle = sink.make_node(NodeData::Text { contents: new_text });
+                replace_last_child_with(sink, parent_id, handle);
+                return;
+            }
+        }
+    }
+
+    add_new_text_child(sink, text, parent_id);
+}
+
+fn combine_texts(existing: &StrTendril, new: &StrTendril) -> StrTendril {
+    let mut combined_text = StrTendril::new();
+    combined_text.push_tendril(existing);
+    combined_text.push_tendril(new);
+    combined_text
+}
+
+fn replace_last_child_with(sink: &mut FlatSink, parent_id: &NodeHandle, new_child: NodeHandle) {
+    let last_index = sink.nodes[parent_id.0].children.len() - 1;
+    sink.nodes[parent_id.0]
+        .children
+        .remove(last_index, &mut sink.pool);
+    sink.nodes[parent_id.0]
+        .children
+        .push(new_child, &mut sink.pool);
+    sink.node_mut(new_child).parent = Some(*parent_id);
+}
+
+fn add_new_text_child(sink: &mut FlatSink, text: StrTendril, parent_id: &NodeHandle) {
+    let handle = sink.make_node(NodeData::Text { contents: text });
+    sink.nodes[parent_id.0]
+        .children
+        .push(handle, &mut sink.pool);
+    sink.node_mut(handle).parent = Some(*parent_id);
+}
+
 impl TreeSink for FlatSink {
     type Output = Self;
     type Handle = NodeHandle;
@@ -254,12 +313,12 @@ impl TreeSink for FlatSink {
     }
 
     fn append(&mut self, parent_id: &Self::Handle, child: NodeOrText<Self::Handle>) {
-        let handle = node_or_text_to_node(self, child);
-
-        self.nodes[parent_id.0]
-            .children
-            .push(handle, &mut self.pool);
-        self.node_mut(handle).parent = Some(*parent_id);
+        match child {
+            NodeOrText::AppendNode(handle) => append_node_to_parent(self, handle, parent_id),
+            NodeOrText::AppendText(text) => {
+                append_text_to_existing_text_node(self, text, parent_id)
+            }
+        };
     }
 
     fn append_based_on_parent_node(
