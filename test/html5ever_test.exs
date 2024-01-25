@@ -13,6 +13,29 @@ defmodule Html5everTest do
     assert Html5ever.parse(html) == {:ok, [{"html", [], [{"head", [], []}, {"body", [], []}]}]}
   end
 
+  test "parse html with entities" do
+    html = """
+    <p>hier staat &quot;ABC</p><p>aan elkaar, toch?
+    new
+    line</p>
+    """
+
+    assert Html5ever.parse(html) ==
+             {:ok,
+              [
+                {"html", [],
+                 [
+                   {"head", [], []},
+                   {"body", [],
+                    [
+                      {"p", [], ["hier staat \"ABC"]},
+                      {"p", [], ["aan elkaar, toch?\nnew\nline"]},
+                      "\n"
+                    ]}
+                 ]}
+              ]}
+  end
+
   test "does not parse with not valid UTF8 binary" do
     invalid =
       <<98, 29, 104, 122, 46, 145, 14, 37, 122, 155, 227, 121, 49, 120, 108, 209, 155, 113, 229,
@@ -144,49 +167,38 @@ defmodule Html5everTest do
               {"html", [],
                [
                  {"head", [], ["\n", "    ", {"title", [], ["Test"]}, "\n", "  "]},
-                 "\n",
-                 "  ",
+                 "\n  ",
                  {"body", [],
                   [
                     "\n",
                     "    ",
                     {"div", [{"class", "content"}],
                      [
-                       "\n",
-                       "      ",
+                       "\n      ",
                        {"span", [],
                         [
                           "\n",
                           "        ",
                           {"div", [],
                            [
-                             "\n",
-                             "          ",
+                             "\n          ",
                              {"span", [],
                               [
                                 "\n",
                                 "            ",
-                                {"small", [],
-                                 ["\n", "            very deep content", "\n", "            "]},
+                                {"small", [], ["\n            very deep content\n            "]},
                                 "\n",
                                 "          "
                               ]},
-                             "\n",
-                             "        "
+                             "\n        "
                            ]},
-                          "\n",
-                          "        ",
+                          "\n        ",
                           {"img", [{"src", "file.jpg"}], []},
-                          "\n",
-                          "      "
+                          "\n      "
                         ]},
-                       "\n",
-                       "    "
+                       "\n    "
                      ]},
-                    "\n",
-                    "  ",
-                    "\n",
-                    "\n"
+                    "\n  \n\n"
                   ]}
                ]}
             ]} = parsed
@@ -224,49 +236,38 @@ defmodule Html5everTest do
               {"html", %{},
                [
                  {"head", %{}, ["\n", "    ", {"title", %{}, ["Test"]}, "\n", "  "]},
-                 "\n",
-                 "  ",
+                 "\n  ",
                  {"body", %{},
                   [
                     "\n",
                     "    ",
                     {"div", %{"class" => "content"},
                      [
-                       "\n",
-                       "      ",
+                       "\n      ",
                        {"span", %{},
                         [
                           "\n",
                           "        ",
                           {"div", %{},
                            [
-                             "\n",
-                             "          ",
+                             "\n          ",
                              {"span", %{},
                               [
                                 "\n",
                                 "            ",
-                                {"small", %{},
-                                 ["\n", "            very deep content", "\n", "            "]},
+                                {"small", %{}, ["\n            very deep content\n            "]},
                                 "\n",
                                 "          "
                               ]},
-                             "\n",
-                             "        "
+                             "\n        "
                            ]},
-                          "\n",
-                          "        ",
+                          "\n        ",
                           {"img", %{"src" => "file.jpg"}, []},
-                          "\n",
-                          "      "
+                          "\n      "
                         ]},
-                       "\n",
-                       "    "
+                       "\n    "
                      ]},
-                    "\n",
-                    "  ",
-                    "\n",
-                    "\n"
+                    "\n  \n\n"
                   ]}
                ]}
             ]} = parsed
